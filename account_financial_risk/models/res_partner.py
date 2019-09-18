@@ -191,14 +191,14 @@ class ResPartner(models.Model):
         rcv_accts = set()
         if self.company_id:
             rcv_accts.add(
-                self.sudo(
+                self.with_context(
                     force_company=self.company_id.id
                 ).property_account_receivable_id.id
             )
         else:
             for company in self.env['res.company'].search([]):
                 rcv_accts.add(
-                    self.sudo(
+                    self.with_context(
                         force_company=company.id
                     ).property_account_receivable_id.id
                 )
