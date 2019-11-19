@@ -286,7 +286,7 @@ class ResPartner(models.Model):
 
     @api.model
     def _max_risk_date_due(self):
-        config_parameter = self.env["ir.config_parameter"]
+        config_parameter = self.env["ir.config_parameter"].sudo()
         days = int(
             config_parameter.get_param(
                 "account_financial_risk.invoice_unpaid_margin", default="0"
@@ -345,7 +345,7 @@ class ResPartner(models.Model):
     def process_unpaid_invoices(self):
         # TODO: Allow different companies to have different margins
         max_date = self._max_risk_date_due()
-        config_parameter = self.env["ir.config_parameter"]
+        config_parameter = self.env["ir.config_parameter"].sudo()
         last_check = config_parameter.get_param(
             "account_financial_risk.last_check", default="2016-01-01"
         )
