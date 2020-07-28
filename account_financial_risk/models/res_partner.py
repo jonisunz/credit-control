@@ -233,6 +233,21 @@ class ResPartner(models.Model):
             "risk_account_amount": 0.0,
             "risk_account_amount_unpaid": 0.0,
         }
+        rcv_accts = set()
+        if self.company_id:
+            rcv_accts.add(
+                self.with_context(
+                    force_company=self.company_id.id
+                ).property_account_receivable_id.id
+            )
+        else:
+            for company in self.env["res.company"].search([]):
+                rcv_accts.add(
+                    self.with_context(
+                        force_company=company.id
+                    ).property_account_receivable_id.id
+                )
+
         # Partner receivable account determines if amount is in invoice field
         for reg in groups["draft"]["read_group"]:
             if reg["partner_id"][0] != self.id:
@@ -241,14 +256,14 @@ class ResPartner(models.Model):
         for reg in groups["open"]["read_group"]:
             if reg["partner_id"][0] != self.id:
                 continue
-            if self.property_account_receivable_id.id == reg["account_id"][0]:
+            if reg["account_id"][0] in rcv_accts:
                 vals["risk_invoice_open"] += reg["amount_residual"]
             else:
                 vals["risk_account_amount"] += reg["amount_residual"]
         for reg in groups["unpaid"]["read_group"]:
             if reg["partner_id"][0] != self.id:
                 continue  # pragma: no cover
-            if self.property_account_receivable_id.id == reg["account_id"][0]:
+            if reg["account_id"][0] in rcv_accts:
                 vals["risk_invoice_unpaid"] += reg["amount_residual"]
             else:
                 vals["risk_account_amount_unpaid"] += reg["amount_residual"]
