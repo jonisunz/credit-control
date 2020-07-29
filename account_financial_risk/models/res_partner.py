@@ -4,6 +4,7 @@
 from dateutil.relativedelta import relativedelta
 
 from odoo import _, api, fields, models
+from odoo.fields import Datetime
 
 
 class ResPartner(models.Model):
@@ -121,7 +122,7 @@ class ResPartner(models.Model):
 
     @api.model
     def _get_risk_company_domain(self):
-        return [("company_id", "in", self.env.companies.ids)]
+        return [("company_id", "in", self.env["res.company"].search([]).ids)]
 
     def _get_field_risk_model_domain(self, field_name):
         """ Returns a tuple with model name and domain"""
@@ -214,16 +215,36 @@ class ResPartner(models.Model):
         if not customers:
             return  # pragma: no cover
         groups = self._risk_account_groups()
+        balances = {}
+        many = False
+        if len(customers) > 5:
+            # Simple Optimisation for large case
+            many = True
+            balance_by_partner = {c: dict() for c in customers.ids}
         for _key, group in groups.items():
-            group["read_group"] = AccountMoveLine.read_group(
+            balances[_key] = AccountMoveLine.read_group(
                 group["domain"] + [("partner_id", "in", customers.ids)],
                 group["fields"],
                 group["group_by"],
                 orderby="id",
                 lazy=False,
             )
+            if many:
+                for b in balances[_key]:
+                    partner_id = b["partner_id"][0]
+                    if _key not in balance_by_partner[partner_id]:
+                        balance_by_partner[partner_id][_key] = [b]
+                    else:
+                        balance_by_partner[partner_id][_key].append(b)
         for partner in customers:
-            partner.update(partner._prepare_risk_account_vals(groups))
+            try:
+                partner.update(
+                    partner._prepare_risk_account_vals(
+                        balance_by_partner[partner.id] if many else balances
+                    )
+                )
+            except KeyError:
+                continue
 
     def _prepare_risk_account_vals(self, groups):
         vals = {
@@ -249,18 +270,19 @@ class ResPartner(models.Model):
                 )
 
         # Partner receivable account determines if amount is in invoice field
-        for reg in groups["draft"]["read_group"]:
+        for reg in groups.get("draft", []):
             if reg["partner_id"][0] != self.id:
                 continue
+            # if reg["account_id"][0] in rcv_accts:
             vals["risk_invoice_draft"] += reg["amount_residual"]
-        for reg in groups["open"]["read_group"]:
+        for reg in groups.get("open", []):
             if reg["partner_id"][0] != self.id:
                 continue
             if reg["account_id"][0] in rcv_accts:
                 vals["risk_invoice_open"] += reg["amount_residual"]
             else:
                 vals["risk_account_amount"] += reg["amount_residual"]
-        for reg in groups["unpaid"]["read_group"]:
+        for reg in groups.get("unpaid", []):
             if reg["partner_id"][0] != self.id:
                 continue  # pragma: no cover
             if reg["account_id"][0] in rcv_accts:
@@ -306,10 +328,13 @@ class ResPartner(models.Model):
 
     @api.model
     def _max_risk_date_due(self):
-        return fields.Date.to_string(
-            fields.Date.today()
-            - relativedelta(days=self.env.company.invoice_unpaid_margin)
+        config_parameter = self.env["ir.config_parameter"]
+        days = int(
+            config_parameter.get_param(
+                "account_financial_risk.invoice_unpaid_margin", default="0"
+            )
         )
+        return fields.Date.to_string(Datetime.today().date() - relativedelta(days=days))
 
     @api.model
     def _risk_field_list(self):
