@@ -273,7 +273,6 @@ class ResPartner(models.Model):
         for reg in groups.get("draft", []):
             if reg["partner_id"][0] != self.id:
                 continue
-            # if reg["account_id"][0] in rcv_accts:
             vals["risk_invoice_draft"] += reg["amount_residual"]
         for reg in groups.get("open", []):
             if reg["partner_id"][0] != self.id:
