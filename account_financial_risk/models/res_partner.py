@@ -327,7 +327,7 @@ class ResPartner(models.Model):
 
     @api.model
     def _max_risk_date_due(self):
-        config_parameter = self.env["ir.config_parameter"]
+        config_parameter = self.env["ir.config_parameter"].sudo()
         days = int(
             config_parameter.get_param(
                 "account_financial_risk.invoice_unpaid_margin", default="0"
