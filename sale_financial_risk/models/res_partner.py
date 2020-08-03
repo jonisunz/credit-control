@@ -35,11 +35,15 @@ class ResPartner(models.Model):
     )
     def _compute_risk_sale_order(self):
         self.update({"risk_sale_order": 0.0})
-        orders_group = self.env["sale.order.line"].read_group(
-            domain=self._get_risk_sale_order_domain(),
-            fields=["commercial_partner_id", "risk_amount"],
-            groupby=["commercial_partner_id"],
-            orderby="id",
+        orders_group = (
+            self.env["sale.order.line"]
+            .sudo()
+            .read_group(
+                domain=self._get_risk_sale_order_domain(),
+                fields=["commercial_partner_id", "risk_amount"],
+                groupby=["commercial_partner_id"],
+                orderby="id",
+            )
         )
         for group in orders_group:
             self.browse(group["commercial_partner_id"][0]).risk_sale_order = group[
