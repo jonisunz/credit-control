@@ -4,7 +4,6 @@
 from dateutil.relativedelta import relativedelta
 
 from odoo import _, api, fields, models
-from odoo.fields import Datetime
 
 
 class ResPartner(models.Model):
@@ -327,13 +326,10 @@ class ResPartner(models.Model):
 
     @api.model
     def _max_risk_date_due(self):
-        config_parameter = self.env["ir.config_parameter"].sudo()
-        days = int(
-            config_parameter.get_param(
-                "account_financial_risk.invoice_unpaid_margin", default="0"
-            )
+        return fields.Date.to_string(
+            fields.Date.today()
+            - relativedelta(days=self.env.company.invoice_unpaid_margin)
         )
-        return fields.Date.to_string(Datetime.today().date() - relativedelta(days=days))
 
     @api.model
     def _risk_field_list(self):
